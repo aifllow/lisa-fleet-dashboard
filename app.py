@@ -92,9 +92,23 @@ def load_fleet_data():
         spreadsheet = gc.open_by_key(SHEET_ID)
         worksheet = spreadsheet.sheet1
         
-        # 获取所有数据
-        data = worksheet.get_all_records()
-        df = pd.DataFrame(data)
+        # 获取所有数据（使用 get_all_values 避免表头重复问题）
+        all_values = worksheet.get_all_values()
+        if len(all_values) < 2:
+            return pd.DataFrame()
+        
+        # 第一行作为表头，过滤空列
+        headers = all_values[0]
+        data_rows = all_values[1:]
+        
+        # 找出非空表头的索引
+        valid_indices = [i for i, h in enumerate(headers) if h.strip()]
+        
+        # 只保留有效列
+        clean_headers = [headers[i] for i in valid_indices]
+        clean_data = [[row[i] if i < len(row) else '' for i in valid_indices] for row in data_rows]
+        
+        df = pd.DataFrame(clean_data, columns=clean_headers)
         return df
     except Exception as e:
         st.error(f"加载数据失败: {e}")
