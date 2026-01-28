@@ -1,0 +1,4 @@
+
+# Secrets (never commit)
+.streamlit/secrets.toml
+.streamlit/dashboard.log
