@@ -18,7 +18,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# 自定义 CSS
+# 自定义 CSS（响应式设计）
 st.markdown("""
 <style>
     /* 深色主题优化 */
@@ -26,13 +26,14 @@ st.markdown("""
         background-color: #0e1117;
     }
     
-    /* 卡片样式 */
+    /* 卡片样式 - 响应式 */
     .agent-card {
         background: linear-gradient(135deg, #1a1f2e 0%, #252b3b 100%);
         border-radius: 12px;
-        padding: 20px;
+        padding: 15px;
         border: 1px solid #333;
         margin: 5px 0;
+        min-height: 120px;
     }
     
     /* 状态指示灯 */
@@ -41,9 +42,9 @@ st.markdown("""
     .status-idle { color: #888888; }
     .status-busy { color: #ffaa00; }
     
-    /* 标题样式 */
+    /* 标题样式 - 响应式 */
     .main-title {
-        font-size: 2.5rem;
+        font-size: 2rem;
         font-weight: bold;
         background: linear-gradient(90deg, #00d4ff, #00ff88);
         -webkit-background-clip: text;
@@ -63,6 +64,62 @@ st.markdown("""
     /* 隐藏 Streamlit 默认元素 */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
+    
+    /* ===== 响应式适配 ===== */
+    
+    /* 手机屏幕 (< 768px) */
+    @media (max-width: 768px) {
+        .main-title {
+            font-size: 1.5rem !important;
+        }
+        
+        .agent-card {
+            padding: 12px;
+            min-height: 100px;
+        }
+        
+        .agent-card h3 {
+            font-size: 1rem !important;
+        }
+        
+        .agent-card p {
+            font-size: 0.8rem !important;
+        }
+        
+        /* Streamlit 列在手机上堆叠 */
+        [data-testid="column"] {
+            width: 100% !important;
+            flex: 1 1 100% !important;
+            min-width: 100% !important;
+        }
+        
+        /* 指标卡片在手机上更紧凑 */
+        [data-testid="stMetricValue"] {
+            font-size: 1.2rem !important;
+        }
+        
+        [data-testid="stMetricLabel"] {
+            font-size: 0.8rem !important;
+        }
+    }
+    
+    /* 平板屏幕 (768px - 1024px) */
+    @media (min-width: 768px) and (max-width: 1024px) {
+        .main-title {
+            font-size: 1.8rem !important;
+        }
+        
+        /* 平板上显示 2 列 */
+        [data-testid="column"] {
+            min-width: 45% !important;
+        }
+    }
+    
+    /* 确保内容不溢出 */
+    .stMarkdown, .stText {
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
 </style>
 """, unsafe_allow_html=True)
 
