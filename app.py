@@ -359,7 +359,11 @@ def main():
         st.markdown(f"- 数据更新: {system_status['update_time']}")
     
     st.divider()
-    st.caption("🚢 Lisa 舰队 | 舰长: Neal | 总指挥官: Lisa | 探索、执行、进化")
+    col_footer1, col_footer2 = st.columns([3, 1])
+    with col_footer1:
+        st.caption("🚢 Lisa 舰队 | 舰长: Neal | 总指挥官: Lisa")
+    with col_footer2:
+        st.markdown("[📱 移动版](./📱_Mobile)", unsafe_allow_html=True)
 
 # 运行
 if check_password():
