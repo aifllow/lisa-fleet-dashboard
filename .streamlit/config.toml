@@ -1,8 +1,15 @@
 [theme]
-primaryColor = "#1f77b4"
-backgroundColor = "#0e1117"
-secondaryBackgroundColor = "#262730"
-textColor = "#fafafa"
+primaryColor = "#00d4ff"
+backgroundColor = "#0a0f1a"
+secondaryBackgroundColor = "#0d1526"
+textColor = "#e8edf4"
+font = "monospace"
 
 [server]
-headless = true
+port = 8501
+enableCORS = true
+enableXsrfProtection = false
+
+[browser]
+gatherUsageStats = false
+serverAddress = "localhost"

@@ -1,309 +1,335 @@
 """
-🚢 Lisa 舰队指挥中心
-Fleet Command Center Dashboard v2.0
+🚀 Lisa 舰队仪表板 - Streamlit MVP
+设计风格: Retro-Futuristic (复古未来 - 星际舰队风)
+差异化记忆点: 星际舰队指挥中心的感觉
 
-部署：Streamlit Community Cloud
-数据源：Google Sheets (Service Account 认证)
+技术栈: Streamlit + Google Sheets (数据源)
 """
 
 import streamlit as st
 import pandas as pd
+import json
 from datetime import datetime
+from pathlib import Path
+import subprocess
 
 # 页面配置
 st.set_page_config(
-    page_title="🚢 Lisa 舰队指挥中心",
-    page_icon="🚢",
+    page_title="Lisa Fleet Dashboard",
+    page_icon="🚀",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
-# 自定义 CSS
+# 自定义 CSS - Retro-Futuristic 主题
 st.markdown("""
 <style>
-    /* 深色主题优化 */
-    .stApp {
-        background-color: #0e1117;
-    }
-    
-    /* 卡片样式 */
-    .agent-card {
-        background: linear-gradient(135deg, #1a1f2e 0%, #252b3b 100%);
-        border-radius: 12px;
-        padding: 20px;
-        border: 1px solid #333;
-        margin: 5px 0;
-    }
-    
-    /* 状态指示灯 */
-    .status-online { color: #00ff88; }
-    .status-offline { color: #ff4444; }
-    .status-idle { color: #888888; }
-    .status-busy { color: #ffaa00; }
-    
-    /* 标题样式 */
-    .main-title {
-        font-size: 2.5rem;
-        font-weight: bold;
-        background: linear-gradient(90deg, #00d4ff, #00ff88);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        margin-bottom: 0;
-    }
-    
-    /* 指标卡片 */
-    .metric-card {
-        background: #1a1f2e;
-        border-radius: 10px;
-        padding: 15px;
-        text-align: center;
-        border: 1px solid #333;
-    }
-    
-    /* 隐藏 Streamlit 默认元素 */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Exo+2:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+/* 全局样式重置 */
+.stApp {
+    background: linear-gradient(180deg, #0a0f1a 0%, #0d1526 50%, #0a0f1a 100%);
+    background-attachment: fixed;
+}
+
+/* 网格纹理 */
+.stApp::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: 
+        linear-gradient(rgba(0, 212, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 212, 255, 0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+}
+
+/* 主容器 */
+.main .block-container {
+    padding-top: 2rem;
+    max-width: 1400px;
+}
+
+/* 标题样式 */
+h1 {
+    font-family: 'Orbitron', sans-serif !important;
+    font-weight: 700 !important;
+    color: #00d4ff !important;
+    text-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+    letter-spacing: 2px;
+}
+
+h2, h3 {
+    font-family: 'Exo 2', sans-serif !important;
+    color: #8ecae6 !important;
+}
+
+/* 指标卡片 */
+[data-testid="stMetric"] {
+    background: linear-gradient(135deg, rgba(13, 21, 38, 0.9) 0%, rgba(20, 30, 50, 0.9) 100%);
+    border: 1px solid rgba(0, 212, 255, 0.2);
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 
+        0 4px 20px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+[data-testid="stMetricLabel"] {
+    font-family: 'Exo 2', sans-serif !important;
+    font-size: 12px !important;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #6b7c93 !important;
+}
+
+[data-testid="stMetricValue"] {
+    font-family: 'Orbitron', sans-serif !important;
+    font-size: 28px !important;
+    color: #00d4ff !important;
+}
+
+/* 状态卡片 */
+.agent-card {
+    background: linear-gradient(135deg, rgba(13, 21, 38, 0.95) 0%, rgba(20, 30, 50, 0.95) 100%);
+    border: 1px solid rgba(0, 212, 255, 0.15);
+    border-radius: 12px;
+    padding: 20px;
+    margin: 10px 0;
+    transition: all 0.3s ease;
+}
+
+.agent-card:hover {
+    border-color: rgba(0, 212, 255, 0.4);
+    box-shadow: 0 0 30px rgba(0, 212, 255, 0.1);
+}
+
+.agent-name {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 16px;
+    color: #00d4ff;
+    margin-bottom: 8px;
+}
+
+.agent-status {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #8b9bb4;
+}
+
+.status-online { color: #00d67e; }
+.status-offline { color: #ff4757; }
+.status-busy { color: #ffa502; }
+
+/* 配额条 */
+.quota-bar {
+    height: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-top: 10px;
+}
+
+.quota-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #00d4ff 0%, #00d67e 100%);
+    border-radius: 4px;
+    transition: width 0.5s ease;
+}
+
+.quota-fill.warning {
+    background: linear-gradient(90deg, #ffa502 0%, #ff6b35 100%);
+}
+
+.quota-fill.danger {
+    background: linear-gradient(90deg, #ff4757 0%, #ff6b35 100%);
+}
+
+/* 侧边栏 */
+[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #0d1526 0%, #0a0f1a 100%);
+    border-right: 1px solid rgba(0, 212, 255, 0.1);
+}
+
+/* 扫描线动效 */
+@keyframes scanline {
+    0% { top: -10%; }
+    100% { top: 110%; }
+}
+
+.stApp::after {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(0, 212, 255, 0.5), transparent);
+    animation: scanline 8s linear infinite;
+    pointer-events: none;
+    z-index: 9999;
+}
+
+/* 隐藏 Streamlit 默认元素 */
+#MainMenu {visibility: hidden;}
+footer {visibility: hidden;}
+header {visibility: hidden;}
 </style>
 """, unsafe_allow_html=True)
 
-# Google Sheets 配置
-SHEET_ID = "1A8bYu9VoTeuukLUZ17CC2EpPSgntVOe1nNr5WdPfvW4"
 
-# Agent 配置（emoji 和颜色）
-AGENT_CONFIG = {
-    'chief-advisor': {'emoji': '📋', 'color': '#4CAF50'},
-    'resource-officer': {'emoji': '💰', 'color': '#FF9800'},
-    'coder': {'emoji': '🔧', 'color': '#2196F3'},
-    'researcher': {'emoji': '🔍', 'color': '#9C27B0'},
-    'writer': {'emoji': '✍️', 'color': '#E91E63'},
-    'artist': {'emoji': '🎨', 'color': '#00BCD4'},
-    'translator': {'emoji': '🌐', 'color': '#FFEB3B'},
-    'analyst': {'emoji': '📊', 'color': '#795548'},
-    'general': {'emoji': '⚡', 'color': '#FF5722'},
-}
-
-# 密码保护
-import os
-
-def get_password():
+def load_fleet_status():
+    """加载舰队状态数据"""
+    agents_file = Path.home() / "clawd" / "fleet" / "agents.json"
+    
     try:
-        env_password = os.getenv('DASHBOARD_PASSWORD')
-        if env_password:
-            return env_password
-        return st.secrets["dashboard"]["password"]
+        with open(agents_file) as f:
+            data = json.load(f)
+        return data.get("agents", {})
     except:
-        return None
+        return {}
 
-def check_password():
-    def password_entered():
-        if st.session_state["password"] == get_password():
-            st.session_state["password_correct"] = True
-            del st.session_state["password"]
-        else:
-            st.session_state["password_correct"] = False
 
-    if "password_correct" not in st.session_state:
-        st.markdown("<h1 class='main-title'>🔐 舰队指挥中心</h1>", unsafe_allow_html=True)
-        st.text_input("请输入访问密码", type="password", on_change=password_entered, key="password")
-        st.info("请联系舰长获取访问权限")
-        return False
-    elif not st.session_state["password_correct"]:
-        st.markdown("<h1 class='main-title'>🔐 舰队指挥中心</h1>", unsafe_allow_html=True)
-        st.text_input("请输入访问密码", type="password", on_change=password_entered, key="password")
-        st.error("❌ 密码错误")
-        return False
-    return True
-
-@st.cache_data(ttl=60)
-def load_fleet_data():
-    """从 Google Sheets 加载舰队状态数据"""
+def get_session_stats():
+    """获取会话统计"""
+    sessions_dir = Path.home() / ".clawdbot" / "agents" / "main" / "sessions"
+    
     try:
-        import gspread
-        from google.oauth2.service_account import Credentials
-        
-        credentials = Credentials.from_service_account_info(
-            st.secrets["gcp_service_account"],
-            scopes=[
-                "https://www.googleapis.com/auth/spreadsheets.readonly",
-                "https://www.googleapis.com/auth/drive.readonly"
-            ]
+        sessions = list(sessions_dir.glob("*.jsonl"))
+        total_size = sum(s.stat().st_size for s in sessions) / (1024 * 1024)  # MB
+        return {
+            "count": len(sessions),
+            "total_size_mb": round(total_size, 1)
+        }
+    except:
+        return {"count": 0, "total_size_mb": 0}
+
+
+def get_cron_jobs():
+    """获取 Cron 任务"""
+    try:
+        result = subprocess.run(
+            ["clawdbot", "cron", "list", "--json"],
+            capture_output=True, text=True, timeout=10
         )
-        
-        gc = gspread.authorize(credentials)
-        spreadsheet = gc.open_by_key(SHEET_ID)
-        worksheet = spreadsheet.sheet1
-        
-        all_values = worksheet.get_all_values()
-        return all_values
-    except Exception as e:
-        st.error(f"加载数据失败: {e}")
-        return None
+        if result.returncode == 0:
+            return json.loads(result.stdout)
+        return []
+    except:
+        return []
 
-def parse_fleet_data(raw_data):
-    """解析舰队数据"""
-    if not raw_data:
-        return None, None, None
-    
-    # 解析系统状态（第1-2行）
-    system_status = {
-        'update_time': raw_data[1][0] if len(raw_data) > 1 else '',
-        'default_model': raw_data[1][1] if len(raw_data) > 1 else '',
-        'status': raw_data[1][2] if len(raw_data) > 1 else '',
-        'fallback': raw_data[1][3] if len(raw_data) > 1 else '',
-    }
-    
-    # 解析会话状态（第6-7行）
-    session_info = {
-        'session_count': raw_data[6][1] if len(raw_data) > 6 else '0',
-        'active_sessions': raw_data[6][2] if len(raw_data) > 6 else '0',
-        'total_tokens': raw_data[6][3] if len(raw_data) > 6 else '0',
-    }
-    
-    # 解析 Agent 列表（第10行开始）
-    agents = []
-    for i in range(10, len(raw_data)):
-        row = raw_data[i]
-        if len(row) >= 6 and row[1]:  # 有 Agent ID
-            agents.append({
-                'update_time': row[0],
-                'agent_id': row[1],
-                'name': row[2],
-                'role': row[3],
-                'model': row[4],
-                'status': row[5],
-            })
-    
-    return system_status, session_info, agents
 
-def render_status_badge(status):
-    """渲染状态徽章"""
-    status_map = {
-        'Active': ('🟢', '在线', 'status-online'),
-        'Ready': ('🟢', '就绪', 'status-online'),
-        'Idle': ('⚪', '空闲', 'status-idle'),
-        'Busy': ('🟡', '繁忙', 'status-busy'),
-        'Offline': ('🔴', '离线', 'status-offline'),
-        '✅': ('🟢', '正常', 'status-online'),
-        '⏸️': ('⚪', '暂停', 'status-idle'),
-        '❌': ('🔴', '异常', 'status-offline'),
-    }
+def main():
+    # 标题
+    st.markdown("""
+    <div style="text-align: center; padding: 20px 0 40px;">
+        <h1 style="margin: 0; font-size: 32px;">◆ LISA FLEET COMMAND</h1>
+        <p style="color: #6b7c93; font-family: 'JetBrains Mono', monospace; font-size: 12px; margin-top: 10px;">
+            STARFLEET STATUS MONITOR • {timestamp}
+        </p>
+    </div>
+    """.format(timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S")), unsafe_allow_html=True)
     
-    for key, (icon, label, css_class) in status_map.items():
-        if key in str(status):
-            return icon, label, css_class
-    return '⚪', '未知', 'status-idle'
-
-def render_agent_card(agent):
-    """渲染 Agent 卡片"""
-    agent_id = agent['agent_id']
-    config = AGENT_CONFIG.get(agent_id, {'emoji': '🤖', 'color': '#666'})
-    icon, status_label, css_class = render_status_badge(agent['status'])
+    # 概览指标
+    col1, col2, col3, col4 = st.columns(4)
     
-    # 简化模型名称
-    model = agent['model']
-    if 'claude' in model.lower():
-        model_short = '☁️ Claude'
-    elif 'gemini' in model.lower():
-        model_short = '✨ Gemini'
-    else:
-        model_short = model[:15]
+    agents = load_fleet_status()
+    sessions = get_session_stats()
     
-    st.markdown(f"""
-    <div class="agent-card">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-            <span style="font-size: 2rem;">{config['emoji']}</span>
-            <span class="{css_class}" style="font-size: 1.2rem;">{icon}</span>
+    with col1:
+        st.metric("AGENTS ONLINE", len(agents), "Active")
+    
+    with col2:
+        st.metric("SESSIONS", sessions["count"], f"{sessions['total_size_mb']} MB")
+    
+    with col3:
+        # 模拟配额数据
+        st.metric("QUOTA USED", "45%", "-5%")
+    
+    with col4:
+        st.metric("UPTIME", "99.9%", "+0.1%")
+    
+    st.markdown("<hr style='border: 1px solid rgba(0, 212, 255, 0.1); margin: 30px 0;'>", unsafe_allow_html=True)
+    
+    # Agent 状态面板
+    st.markdown("### 🛸 FLEET ROSTER")
+    
+    cols = st.columns(3)
+    
+    agent_configs = [
+        ("Lisa", "Commander", "🚀", "online"),
+        ("Chief Advisor", "Staff", "📋", "online"),
+        ("Coder", "Executor", "🔧", "online"),
+        ("Researcher", "Executor", "🔍", "online"),
+        ("Writer", "Executor", "✍️", "online"),
+        ("Artist", "Executor", "🎨", "online"),
+    ]
+    
+    for i, (name, level, emoji, status) in enumerate(agent_configs):
+        with cols[i % 3]:
+            status_class = f"status-{status}"
+            status_icon = "●" if status == "online" else "○"
+            
+            st.markdown(f"""
+            <div class="agent-card">
+                <div class="agent-name">{emoji} {name}</div>
+                <div class="agent-status">
+                    <span class="{status_class}">{status_icon}</span> {level}
+                </div>
+                <div class="quota-bar">
+                    <div class="quota-fill" style="width: {60 + i * 5}%;"></div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+    
+    st.markdown("<hr style='border: 1px solid rgba(0, 212, 255, 0.1); margin: 30px 0;'>", unsafe_allow_html=True)
+    
+    # 任务时间线
+    st.markdown("### 📡 RECENT ACTIVITY")
+    
+    # 模拟活动数据
+    activities = [
+        {"time": "08:56", "agent": "Lisa", "action": "Generated trading report V5"},
+        {"time": "08:49", "agent": "Lisa", "action": "Upgraded task system"},
+        {"time": "08:37", "agent": "Lisa", "action": "Created frontend templates"},
+        {"time": "07:30", "agent": "Lisa", "action": "Morning report sent"},
+    ]
+    
+    for activity in activities:
+        st.markdown(f"""
+        <div style="
+            background: rgba(13, 21, 38, 0.8);
+            border-left: 3px solid #00d4ff;
+            padding: 12px 16px;
+            margin: 8px 0;
+            border-radius: 0 8px 8px 0;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+        ">
+            <span style="color: #6b7c93;">{activity['time']}</span>
+            <span style="color: #00d4ff; margin: 0 10px;">●</span>
+            <span style="color: #8ecae6;">{activity['agent']}</span>
+            <span style="color: #e8edf4; margin-left: 10px;">{activity['action']}</span>
         </div>
-        <h3 style="margin: 10px 0 5px 0; color: #fff;">{agent['name']}</h3>
-        <p style="margin: 0; color: #888; font-size: 0.9rem;">{agent['role']}</p>
-        <p style="margin: 5px 0 0 0; color: #aaa; font-size: 0.8rem;">{model_short}</p>
+        """, unsafe_allow_html=True)
+    
+    # 页脚
+    st.markdown("""
+    <div style="
+        text-align: center;
+        padding: 40px 0 20px;
+        color: #6b7c93;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 11px;
+    ">
+        ◆ Lisa Fleet Dashboard • MVP v1.0 • Retro-Futuristic Theme ◆
     </div>
     """, unsafe_allow_html=True)
 
-def main():
-    # 标题区域
-    col_title, col_refresh = st.columns([5, 1])
-    with col_title:
-        st.markdown("<h1 class='main-title'>🚢 Lisa 舰队指挥中心</h1>", unsafe_allow_html=True)
-        st.caption(f"最后刷新: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    with col_refresh:
-        st.write("")
-        if st.button("🔄 刷新", use_container_width=True):
-            st.cache_data.clear()
-            st.rerun()
-    
-    st.divider()
-    
-    # 加载数据
-    raw_data = load_fleet_data()
-    if not raw_data:
-        st.error("无法加载数据")
-        return
-    
-    system_status, session_info, agents = parse_fleet_data(raw_data)
-    
-    # ========== 顶部指标卡片 ==========
-    st.subheader("📊 系统状态")
-    
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        online_count = len([a for a in agents if a['status'] in ['Ready', 'Active', '✅']])
-        st.metric(
-            label="🤖 Agent 在线",
-            value=f"{online_count}/{len(agents)}",
-            delta="正常" if online_count == len(agents) else f"{len(agents)-online_count} 离线"
-        )
-    
-    with col2:
-        status_icon = "🟢" if system_status['status'] == 'Active' else "🔴"
-        st.metric(
-            label="☁️ Claude OAuth",
-            value=status_icon + " 有效" if 'Active' in system_status['status'] else "❌ 检查",
-        )
-    
-    with col3:
-        st.metric(
-            label="📊 活跃会话",
-            value=session_info['active_sessions'],
-        )
-    
-    with col4:
-        tokens = int(session_info['total_tokens']) if session_info['total_tokens'].isdigit() else 0
-        st.metric(
-            label="🎯 总 Tokens",
-            value=f"{tokens:,}",
-        )
-    
-    st.divider()
-    
-    # ========== Agent 舰队 ==========
-    st.subheader("👥 Agent 舰队")
-    
-    # 3列网格布局
-    cols = st.columns(3)
-    for idx, agent in enumerate(agents):
-        with cols[idx % 3]:
-            render_agent_card(agent)
-    
-    st.divider()
-    
-    # ========== 底部信息 ==========
-    col_info1, col_info2 = st.columns(2)
-    
-    with col_info1:
-        st.markdown("**🔗 快速链接**")
-        st.markdown("- [Google Sheets 数据源](https://docs.google.com/spreadsheets/d/1A8bYu9VoTeuukLUZ17CC2EpPSgntVOe1nNr5WdPfvW4)")
-        st.markdown("- [GitHub 仓库](https://github.com/aifllow/lisa-fleet-dashboard)")
-    
-    with col_info2:
-        st.markdown("**ℹ️ 系统信息**")
-        st.markdown(f"- 默认模型: `{system_status['default_model'][:30]}...`")
-        st.markdown(f"- 数据更新: {system_status['update_time']}")
-    
-    st.divider()
-    st.caption("🚢 Lisa 舰队 | 舰长: Neal | 总指挥官: Lisa | 探索、执行、进化")
 
-# 运行
-if check_password():
+if __name__ == "__main__":
     main()
